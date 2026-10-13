@@ -16,13 +16,18 @@
 <script>
   // GCE DAILY embed link: signs in automatically, hides filter pane and page tabs
   var REPORT_URL = "https://app.powerbi.com/reportEmbed?reportId=1bd1935b-c9f3-4100-9a75-04871ee05690&autoAuth=true&ctid=a3329a53-02fd-4abb-94cd-6d1b954419f6&filterPaneEnabled=false&navContentPaneEnabled=false";
-  var EVERY_MINUTES = 5;
+  var EVERY_MINUTES = 20;
 
   var current = document.getElementById("f0");
   current.src = REPORT_URL;
+  var lastLoad = Date.now();
+  var busy = false;
 
   // Load a fresh copy behind the current one, then swap, so the screen never goes blank
   function reloadReport() {
+    if (busy) return;
+    busy = true;
+    lastLoad = Date.now();
     var next = document.createElement("iframe");
     next.className = "frame waiting";
     next.title = "GCE Daily Brief";
@@ -33,12 +38,19 @@
         next.classList.remove("waiting");
         current.remove();
         current = next;
+        busy = false;
       }, 15000);
     };
     document.body.appendChild(next);
   }
 
-  setInterval(reloadReport, EVERY_MINUTES * 60 * 1000);
+  // Each reload makes Power BI sign the viewer in again, so only reload when someone
+  // can see the page; a background tab catches up as soon as it is shown again
+  function due() { return Date.now() - lastLoad >= EVERY_MINUTES * 60 * 1000; }
+  setInterval(function () { if (!document.hidden && due()) reloadReport(); }, 60 * 1000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && due()) reloadReport();
+  });
 </script>
 </body>
 </html>
